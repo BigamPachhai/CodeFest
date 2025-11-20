@@ -1,0 +1,227 @@
+import Problem from '../models/Problem.js';
+import User from '../models/User.js';
+import { validationResult } from 'express-validator';
+
+export const createProblem = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const {
+      title,
+      description,
+      category,
+      location,
+      isAnonymous,
+      images
+    } = req.body;
+
+    const problem = await Problem.create({
+      title,
+      description,
+      category,
+      location,
+      isAnonymous,
+      images,
+      reporter: req.user.id
+    });
+
+    // AI Processing for category and duplicate detection
+    await processProblemWithAI(problem);
+
+    await problem.populate('reporter', 'name avatar');
+
+    res.status(201).json({
+      success: true,
+      data: {
+        problem
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creating problem report',
+      error: error.message
+    });
+  }
+};
+
+export const getAllProblems = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      category,
+      status,
+      municipality,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const filter = {};
+    if (category) filter.category = category;
+    if (status) filter.status = status;
+    if (municipality) filter['location.municipality'] = municipality;
+
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    const problems = await Problem.find(filter)
+      .populate('reporter', 'name avatar isAnonymous')
+      .populate('assignedTo', 'name department')
+      .sort(sortOptions)
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Problem.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        problems,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching problems',
+      error: error.message
+    });
+  }
+};
+
+export const getProblem = async (req, res) => {
+  try {
+    const problem = await Problem.findById(req.params.id)
+      .populate('reporter', 'name avatar isAnonymous')
+      .populate('assignedTo', 'name department')
+      .populate('comments.user', 'name avatar');
+
+    if (!problem) {
+      return res.status(404).json({
+        success: false,
+        message: 'Problem not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        problem
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching problem',
+      error: error.message
+    });
+  }
+};
+
+export const upvoteProblem = async (req, res) => {
+  try {
+    const problem = await Problem.findById(req.params.id);
+
+    if (!problem) {
+      return res.status(404).json({
+        success: false,
+        message: 'Problem not found'
+      });
+    }
+
+    const hasUpvoted = problem.upvotes.includes(req.user.id);
+
+    if (hasUpvoted) {
+      problem.upvotes.pull(req.user.id);
+      problem.upvoteCount -= 1;
+    } else {
+      problem.upvotes.push(req.user.id);
+      problem.upvoteCount += 1;
+    }
+
+    await problem.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        upvoted: !hasUpvoted,
+        upvoteCount: problem.upvoteCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error upvoting problem',
+      error: error.message
+    });
+  }
+};
+
+export const addComment = async (req, res) => {
+  try {
+    const { text, isAnonymous = false } = req.body;
+
+    const problem = await Problem.findById(req.params.id);
+
+    if (!problem) {
+      return res.status(404).json({
+        success: false,
+        message: 'Problem not found'
+      });
+    }
+
+    problem.comments.push({
+      user: req.user.id,
+      text,
+      isAnonymous
+    });
+
+    await problem.save();
+    await problem.populate('comments.user', 'name avatar');
+
+    res.status(201).json({
+      success: true,
+      data: {
+        comment: problem.comments[problem.comments.length - 1]
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error adding comment',
+      error: error.message
+    });
+  }
+};
+
+// AI Processing function
+const processProblemWithAI = async (problem) => {
+  try {
+    // This would integrate with your AI service
+    // For now, we'll simulate AI processing
+    const aiData = {
+      category: problem.category, // Would be predicted by AI
+      description: problem.description, // Would be generated by AI
+      confidence: 0.85,
+      duplicateCheck: {
+        isDuplicate: false,
+        similarProblemId: null,
+        similarityScore: 0
+      }
+    };
+
+    problem.aiGeneratedData = aiData;
+    await problem.save();
+  } catch (error) {
+    console.error('AI processing error:', error);
+  }
+};
