@@ -1,0 +1,18 @@
+
+> server@1.0.0 dev
+> nodemon server.js
+
+[33m[nodemon] 3.1.11[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node server.js`[39m
+[dotenv@17.2.3] injecting env (15) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+(node:33447) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/bigampachhai/Documents/CodeFest/server/server.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/bigampachhai/Documents/CodeFest/server/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✅ Connected to MongoDB
+🚀 Server running on port 5001
+🌐 Health check: http://localhost:5001/api/health
+🧪 Test route: http://localhost:5001/api/test
